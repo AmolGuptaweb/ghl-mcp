@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Renegade Insurance — M&amp;A Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+    /* Header */
+    header { background: #1e293b; color: #fff; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.3px; }
+    header h1 span { color: #f97316; }
+    .date-controls { display: flex; align-items: center; gap: 10px; }
+    .date-controls label { font-size: .85rem; color: #94a3b8; }
+    #datePicker { padding: 7px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: .9rem; cursor: pointer; }
+    #loadBtn { padding: 7px 18px; background: #f97316; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: .9rem; cursor: pointer; transition: background .15s; }
+    #loadBtn:hover { background: #ea6c00; }
+    #loadBtn:disabled { background: #475569; cursor: not-allowed; }
+
+    /* Main */
+    main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* Status bar */
+    #statusBar { font-size: .85rem; color: #64748b; margin-bottom: 20px; min-height: 20px; }
+    #statusBar.loading { color: #f97316; }
+    #statusBar.error   { color: #ef4444; }
+
+    /* Summary cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .card { background: #fff; border-radius: 14px; padding: 22px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.07); border-top: 4px solid #e2e8f0; }
+    .card.total   { border-color: #6366f1; }
+    .card.called  { border-color: #22c55e; }
+    .card.notcalled { border-color: #f97316; }
+    .card.closed  { border-color: #3b82f6; }
+    .card.nophone { border-color: #94a3b8; }
+    .card-label { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin-bottom: 8px; }
+    .card-value { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+    .card.total   .card-value { color: #6366f1; }
+    .card.called  .card-value { color: #22c55e; }
+    .card.notcalled .card-value { color: #f97316; }
+    .card.closed  .card-value { color: #3b82f6; }
+    .card.nophone .card-value { color: #94a3b8; }
+    .card-pct { font-size: .82rem; color: #94a3b8; margin-top: 4px; }
+
+    /* Table */
+    .table-wrap { background: #fff; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.07); overflow: hidden; }
+    .table-header { padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; gap: 12px; }
+    .table-header h2 { font-size: 1rem; font-weight: 700; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; font-size: .82rem; cursor: pointer; transition: all .15s; }
+    .filter-btn.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+    table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    thead { background: #f8fafc; }
+    th { padding: 11px 16px; text-align: left; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #64748b; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    td { padding: 13px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+    .badge-green  { background: #dcfce7; color: #15803d; }
+    .badge-orange { background: #ffedd5; color: #c2410c; }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+    .badge-gray   { background: #f1f5f9; color: #64748b; }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* Call details tooltip */
+    .call-detail { font-size: .78rem; color: #64748b; margin-top: 4px; }
+
+    /* Empty state */
+    .empty { padding: 60px 24px; text-align: center; color: #94a3b8; }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .empty p { font-size: .95rem; }
+
+    @media (max-width: 640px) {
+      header { padding: 14px 16px; }
+      main { padding: 16px; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Renegade <span>Insurance</span> — M&amp;A Dashboard</h1>
+  <div class="date-controls">
+    <label for="datePicker">Date</label>
+    <input type="date" id="datePicker" />
+    <button id="loadBtn">Load</button>
+  </div>
+</header>
+
+<main>
+  <div id="statusBar"></div>
+
+  <!-- Cards -->
+  <div class="cards">
+    <div class="card total">
+      <div class="card-label">Total Leads</div>
+      <div class="card-value" id="cTotal">—</div>
+      <div class="card-pct" id="cTotalSub"></div>
+    </div>
+    <div class="card called">
+      <div class="card-label">Called (8x8)</div>
+      <div class="card-value" id="cCalled">—</div>
+      <div class="card-pct" id="cCalledPct"></div>
+    </div>
+    <div class="card notcalled">
+      <div class="card-label">Not Called</div>
+      <div class="card-value" id="cNotCalled">—</div>
+      <div class="card-pct" id="cNotCalledPct"></div>
+    </div>
+    <div class="card closed">
+      <div class="card-label">Closed</div>
+      <div class="card-value" id="cClosed">—</div>
+      <div class="card-pct" id="cClosedPct"></div>
+    </div>
+    <div class="card nophone">
+      <div class="card-label">No Phone</div>
+      <div class="card-value" id="cNoPhone">—</div>
+      <div class="card-pct">can't be called</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <h2>Lead Details</h2>
+      <div class="filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="called">Called</button>
+        <button class="filter-btn" data-filter="notcalled">Not Called</button>
+        <button class="filter-btn" data-filter="closed">Closed</button>
+      </div>
+    </div>
+    <div id="tableContainer">
+      <div class="empty"><div class="empty-icon">📋</div><p>Select a date and click Load to view leads.</p></div>
+    </div>
+  </div>
+</main>
+
+<script>
+  let allLeads = [];
+  let currentFilter = "all";
+
+  // Default to today in EDT (UTC-4)
+  const today = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  document.getElementById("datePicker").value = today;
+
+  document.getElementById("loadBtn").addEventListener("click", loadData);
+  document.getElementById("datePicker").addEventListener("keydown", e => { if (e.key === "Enter") loadData(); });
+
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      renderTable(allLeads);
+    });
+  });
+
+  function setStatus(msg, cls = "") {
+    const el = document.getElementById("statusBar");
+    el.textContent = msg;
+    el.className = cls;
+  }
+
+  async function loadData() {
+    const date = document.getElementById("datePicker").value;
+    if (!date) return;
+    const btn = document.getElementById("loadBtn");
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    setStatus(`Fetching leads and 8x8 call records for ${date}…`, "loading");
+
+    try {
+      const resp = await fetch(`/api/dashboard?date=${date}`);
+      if (!resp.ok) throw new Error(await resp.text());
+      const { summary, leads } = await resp.json();
+
+      allLeads = leads;
+      updateCards(summary);
+      renderTable(leads);
+      setStatus(`Loaded ${summary.total} lead(s) for ${date} · 8x8 CDR checked ✓`);
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, "error");
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Load";
+    }
+  }
+
+  function pct(n, total) {
+    if (!total) return "0%";
+    return Math.round((n / total) * 100) + "%";
+  }
+
+  function updateCards(s) {
+    document.getElementById("cTotal").textContent     = s.total;
+    document.getElementById("cCalled").textContent    = s.called;
+    document.getElementById("cNotCalled").textContent = s.notCalled;
+    document.getElementById("cClosed").textContent    = s.closed;
+    document.getElementById("cNoPhone").textContent   = s.noPhone;
+
+    document.getElementById("cTotalSub").textContent     = "for selected date";
+    document.getElementById("cCalledPct").textContent    = `${pct(s.called, s.total)} of leads`;
+    document.getElementById("cNotCalledPct").textContent = `${pct(s.notCalled, s.total)} of leads`;
+    document.getElementById("cClosedPct").textContent    = `${pct(s.closed, s.total)} of leads`;
+  }
+
+  function renderTable(leads) {
+    const filtered = leads.filter(l => {
+      if (currentFilter === "called")    return l.called;
+      if (currentFilter === "notcalled") return !l.called;
+      if (currentFilter === "closed")    return l.closed;
+      return true;
+    });
+
+    const container = document.getElementById("tableContainer");
+
+    if (!filtered.length) {
+      container.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><p>No leads match this filter.</p></div>`;
+      return;
+    }
+
+    const rows = filtered.map(l => {
+      const calledBadge = l.called
+        ? `<span class="badge badge-green"><span class="badge-dot"></span>Called</span>`
+        : (l.phone
+            ? `<span class="badge badge-orange"><span class="badge-dot"></span>Not Called</span>`
+            : `<span class="badge badge-gray">No Phone</span>`);
+
+      const stageBadge = l.closed
+        ? `<span class="badge badge-blue">${esc(l.stage)}</span>`
+        : `<span class="badge badge-gray">${esc(l.stage)}</span>`;
+
+      const callInfo = l.callDetails.length
+        ? l.callDetails.map(c =>
+            `<div class="call-detail">↗ ${esc(c.agent)} · ${fmtTime(c.time)} · ${esc(c.disposition)} · ${esc(c.talkTime)}</div>`
+          ).join("")
+        : "";
+
+      const noteCell = l.statusUpdate
+        ? `<div style="font-size:.82rem;color:#1e293b;max-width:300px;white-space:pre-wrap;word-break:break-word">${esc(l.statusUpdate)}</div>`
+        : `<span style="color:#cbd5e1">—</span>`;
+
+      return `<tr>
+        <td><strong>${esc(l.name)}</strong>${l.email ? `<div style="color:#94a3b8;font-size:.78rem">${esc(l.email)}</div>` : ""}</td>
+        <td>${l.phone ? esc(l.phone) : '<span style="color:#cbd5e1">—</span>'}</td>
+        <td>${l.source ? esc(l.source) : '<span style="color:#cbd5e1">—</span>'}</td>
+        <td style="white-space:nowrap">${fmtDate(l.dateAdded)}</td>
+        <td>${stageBadge}</td>
+        <td>${calledBadge}${callInfo}</td>
+        <td>${noteCell}</td>
+      </tr>`;
+    }).join("");
+
+    container.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Name / Email</th>
+            <th>Phone</th>
+            <th>Source</th>
+            <th>Date Added</th>
+            <th>Stage</th>
+            <th>Call Status (8x8)</th>
+            <th>Status Update</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function esc(s) {
+    if (!s) return "";
+    return s.toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("en-US", { month:"short", day:"numeric", hour:"numeric", minute:"2-digit", hour12:true, timeZone:"America/New_York" });
+    } catch { return iso; }
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit", hour12:true });
+    } catch { return iso; }
+  }
+
+  // Auto-load today on page open
+  loadData();
+</script>
+
+</body>
+</html>

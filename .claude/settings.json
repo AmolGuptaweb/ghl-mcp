@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ghl": {
+      "command": "node",
+      "args": ["server.mjs"]
+    }
+  }
+}
