@@ -10,7 +10,9 @@
 
     "start": "node server.mjs",
 
-    "dashboard": "node dashboard.mjs"
+    "dashboard": "node dashboard.mjs",
+
+    "report": "node lead-call-time.mjs"
 
   },
 
